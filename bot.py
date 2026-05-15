@@ -596,4 +596,4 @@ async def on_ready():
 
 # ================= RUN =================
 
-bot.run("MTM0OTU1OTU5NTA2NDA5ODg4OA.Gv8fKe.J-1n6KOoudAHiXQMjyc6Sc2ZLZfCUUwxkC0jjc")
+bot.run(token)
