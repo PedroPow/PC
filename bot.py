@@ -222,8 +222,6 @@ if not TOKEN:
     print("❌ Erro: TOKEN_PC não definido nas variáveis de ambiente.")
     exit(1)
 
-bot.run(TOKEN_PC)
-
 # ================= HELPERS =================
 async def enviar_log_embed(guild, embed):
     if not guild: return
@@ -601,3 +599,4 @@ async def on_ready():
 
     await enviar_log(guild, "🚀 Bot iniciado", "Sistema de SET e Slash Commands ativos.")
 
+bot.run(TOKEN_PC)
