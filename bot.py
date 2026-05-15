@@ -5,6 +5,7 @@ from discord import Embed
 import asyncio
 import aiohttp
 import io
+import os
 from datetime import datetime
 
 # ============================
@@ -215,6 +216,13 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+TOKEN = os.getenv("TOKEN_PC")  # Certifique-se de definir a variável de ambiente TOKEN_PC com o token do seu bot para segurança
+if not TOKEN:
+    print("❌ Erro: TOKEN_PC não definido nas variáveis de ambiente.")
+    exit(1)
+
+bot.run(TOKEN_PC)
 
 # ================= HELPERS =================
 async def enviar_log_embed(guild, embed):
@@ -593,7 +601,3 @@ async def on_ready():
 
     await enviar_log(guild, "🚀 Bot iniciado", "Sistema de SET e Slash Commands ativos.")
 
-
-# ================= RUN =================
-
-bot.run(token)
