@@ -366,7 +366,8 @@ class DadosPessoaisModal(Modal, title="Registro do Policial"):
         await interaction.response.defer(ephemeral=True)
         solicitacoes_abertas[self.user_id].update({"patente_id": self.patente_id, "nome": self.nome.value, "passaporte": self.passaporte.value, "cia": self.cia})
         
-        embed = Embed(title="Solicitação de Funcional", description=f"**Solicitante:** {interaction.user.mention}\n**Nome:** {self.nome.value}\n**R.E:** {self.passaporte.value}\n**Companhia:** {self.cia}\n**Patente:** {self.patente_nome}", color=discord.Color.yellow())
+        embed = Embed(title="Solicitação de Funcional", 
+        description=f"**Solicitante:** {interaction.user.mention}\n**Nome:** `{self.nome.value}`\n**Identificação:** `{self.passaporte.value}`\n**Divisão:** `{self.cia}`\n**Patente:** `{self.patente_nome}`", color=discord.Color.yellow())
 
         embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1444735189765849320/1504862661383553024/PC.png")
 
