@@ -599,4 +599,4 @@ async def on_ready():
 
     await enviar_log(guild, "🚀 Bot iniciado", "Sistema de SET e Slash Commands ativos.")
 
-bot.run(TOKEN_PC)
+bot.run(TOKEN)
