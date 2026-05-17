@@ -300,7 +300,6 @@ class TicketView(View):
         
         solicitacoes_abertas[user.id] = {"canal_id": canal.id}
 
-        # Embed enviado na resposta rápida (Ephemeral)
         embed = discord.Embed(
             title="Ticket Criado 🎫", 
             description=f"> Seu canal de atendimento foi gerado com sucesso.\n\n"
@@ -317,7 +316,9 @@ class TicketView(View):
         view_redirect.add_item(btn_ir_para_ticket)
         await interaction.response.send_message(embed=embed, view=view_redirect, ephemeral=True)
 
-        # Mensagem inicial com a view do menu de Cias ATIVADA corretamente
+        # CORREÇÃO AQUI: Aguarda 1 segundo para o Discord propagar as permissões de canal antes de enviar a view
+        await asyncio.sleep(1)
+
         view_cia = View()
         view_cia.add_item(SelectCIA(user.id))
         await canal.send(f"{user.mention}, bem-vindo! Selecione sua **Divisão de Atuação** abaixo para prosseguir:", view=view_cia)
@@ -374,7 +375,7 @@ class DadosPessoaisModal(Modal, title="Registro do Policial"):
         
         canal_logs = await interaction.client.fetch_channel(CANAL_LOGS_ROTA)
         await canal_logs.send(embed=embed, view=ConfirmarOuFecharView(self.user_id))
-        await interaction.followup.send("✅ Solicitação enviada.", ephemeral=True)
+        await interaction.followup.send("✅ Solicitação enviada para a staff.", ephemeral=True)
 
 class ConfirmarOuFecharView(View):
     def __init__(self, user_id):
@@ -383,20 +384,18 @@ class ConfirmarOuFecharView(View):
 
     @discord.ui.button(label="Aceitar Funcional", style=discord.ButtonStyle.gray, emoji="<:AMARELO:1495480160319836412>", custom_id="confirmar_set")
     async def confirmar(self, interaction: discord.Interaction, button: Button):
-        # --- RESTRICÃO PARA STAFF ---
         if not any(role.id == ADMIN_ROLE_ID for role in interaction.user.roles):
             embed_negado = discord.Embed(title="🔒 Acesso Negado", description="Apenas membros da Staff podem aceitar essa funcional.", color=discord.Color.red())
             return await interaction.response.send_message(embed=embed_negado, ephemeral=True)
 
         dados = solicitacoes_abertas.pop(self.user_id, None)
         if not dados:
-            return await interaction.response.send_message("❌ Solicitação não encontrada.", ephemeral=True)
+            return await interaction.response.send_message("❌ Solicitação não encontrada ou já processada.", ephemeral=True)
 
         membro = interaction.guild.get_member(self.user_id)
         if not membro:
             return await interaction.response.send_message("❌ Membro não encontrado no servidor.", ephemeral=True)
 
-        # --- LÓGICA DO NOVO NICKNAME DO PLAYER ---
         cia_key = dados.get('cia')
         label_divisao = DIVISOES_DADOS.get(cia_key, {}).get("label", cia_key)
         
@@ -418,7 +417,6 @@ class ConfirmarOuFecharView(View):
         except discord.Forbidden:
             print(f"Erro: Sem permissão para mudar o nick de {membro.name}.")
 
-        # --- GESTÃO DE CARGOS ---
         novato = interaction.guild.get_role(CARGO_NOVATO_ID)
         if novato and novato in membro.roles:
             await membro.remove_roles(novato)
@@ -436,7 +434,6 @@ class ConfirmarOuFecharView(View):
         if cargos:
             await membro.add_roles(*cargos)
 
-        # --- ATUALIZAÇÃO DO EMBED NO CANAL ---
         agora = datetime.now().strftime("%d/%m/%Y às %H:%M")
         embed = interaction.message.embeds[0]
         embed.color = discord.Color.green()
@@ -445,10 +442,10 @@ class ConfirmarOuFecharView(View):
         embed.add_field(name="ID aprovador:", value=f"`{interaction.user.id}`", inline=True)
         embed.add_field(name="Data:", value=f"`{agora}`", inline=False)
 
+        # CORREÇÃO: Mantido view=None na mensagem de log para travar os botões após o uso
         await interaction.message.edit(embed=embed, view=None)
         await interaction.response.send_message(f"✅ Set de {membro.mention} realizado com sucesso!", ephemeral=True)
 
-        # --- NOTIFICAÇÃO NA DM DO PLAYER (ACEITO) ---
         embed_dm = discord.Embed(
             title="<:emojiJP:1505074670829961236> Atualização no seu Set de Policial!",
             description=f"Olá {membro.mention}, sua solicitação funcional foi aprovada com sucesso!",
@@ -464,6 +461,7 @@ class ConfirmarOuFecharView(View):
         except discord.Forbidden:
             print(f"DM fechada para {membro.name}.")
 
+        # CORREÇÃO: Deleta o canal do ticket com segurança sem sumir com histórico imediatamente
         canal = interaction.guild.get_channel(dados["canal_id"])
         if canal:
             await asyncio.sleep(5)
@@ -471,7 +469,6 @@ class ConfirmarOuFecharView(View):
 
     @discord.ui.button(label="Recusar Funcional", style=discord.ButtonStyle.gray, emoji="<:x1:1495508233647952062>", custom_id="recusar_set")
     async def cancelar(self, interaction: discord.Interaction, button: Button):
-        # --- RESTRICÃO PARA STAFF ---
         if not any(role.id == ADMIN_ROLE_ID for role in interaction.user.roles):
             embed_negado = discord.Embed(title="🔒 Acesso Negado", description="Apenas membros da Staff podem recusar essa funcional.", color=discord.Color.red())
             return await interaction.response.send_message(embed=embed_negado, ephemeral=True)
@@ -492,7 +489,6 @@ class ConfirmarOuFecharView(View):
         )
         await interaction.response.send_message(embed=embed_recusado, ephemeral=True)
 
-        # --- NOTIFICAÇÃO NA DM DO PLAYER (RECUSADO) ---
         if self.user_id:
             membro = interaction.guild.get_member(self.user_id)
             if membro:
@@ -527,7 +523,6 @@ async def on_ready():
         print(f"❌ Guild {GUILD_ID} NÃO encontrada.")
         return
 
-    # ================= PAINEL SET =================
     try:
         canal = guild.get_channel(CANALETA_SOLICITAR_SET_ID)
         if canal:
