@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 
 # ============================
-#    CONFIGURAÇÕES DO SERVIDOR
+#     CONFIGURAÇÕES DO SERVIDOR
 # ============================
 GUILD_ID = 1491438032203677819
 VERIFY_CHANNEL_ID = 1496017827323318433
@@ -34,8 +34,7 @@ CATEGORIA_TICKET_ID = 1504884604631257128
 CANAL_LOGS_ROTA = 1491438033860427849
 CARGO_ROTA_ID = 1491438032337895561
 
-# ================= NOVA ESTRUTURA DE DADOS =================
-# Agora as patentes estão dentro de cada Divisão (Companhia)
+# ================= ESTRUTURA DE DADOS =================
 DIVISOES_DADOS = {
 "PC": {
     "label": "Delegacia de Policia Civil - 1° DP",
@@ -217,7 +216,7 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-TOKEN = os.getenv("TOKEN_PC")  # Certifique-se de definir a variável de ambiente TOKEN_PC com o token do seu bot para segurança
+TOKEN = os.getenv("TOKEN_PC")
 if not TOKEN:
     print("❌ Erro: TOKEN_PC não definido nas variáveis de ambiente.")
     exit(1)
@@ -230,10 +229,10 @@ async def enviar_log_embed(guild, embed):
         try: await canal.send(embed=embed)
         except: pass
 
-async def enviar_log(guild, titulo, descricao, cor=discord.Color.green()):
+async def enviar_log(guild, titulo, description, cor=discord.Color.green()):
     canal = guild.get_channel(LOG_CHANNEL_ID) if guild else None
     if canal:
-        embed = discord.Embed(title=titulo, description=descricao, color=cor)
+        embed = discord.Embed(title=titulo, description=description, color=cor)
         embed.set_footer(text="Sistema de Logs - Policia Civil® ")
         try: await canal.send(embed=embed)
         except: pass
@@ -243,7 +242,8 @@ def has_authorized_role(member):
 
 async def require_authorized(interaction):
     if not has_authorized_role(interaction.user):
-        await interaction.response.send_message("❌ Você não tem permissão.", ephemeral=True)
+        embed_negado = discord.Embed(title="🔒 Acesso Negado", description="Você não possui cargos de Staff autorizados.", color=discord.Color.red())
+        await interaction.response.send_message(embed=embed_negado, ephemeral=True)
         return False
     return True
 
@@ -281,7 +281,7 @@ async def ban(interaction, membro: discord.Member, motivo: str):
     await membro.ban(reason=motivo)
     await interaction.response.send_message(f"🔨 {membro.mention} banido!", ephemeral=True)
 
-# ================= NOVO SISTEMA DE TICKET (INVERTIDO) =================
+# ================= TICKET VIEWS =================
 
 class TicketView(View):
     def __init__(self):
@@ -300,31 +300,24 @@ class TicketView(View):
         
         solicitacoes_abertas[user.id] = {"canal_id": canal.id}
 
-        view = View()
-        view.add_item(SelectCIA(user.id)) # CHAMA CIA PRIMEIRO
-
-# --- NOVA LÓGICA AQUI ---
-        # Criamos o Embed
+        # Embed enviado na resposta rápida (Ephemeral)
         embed = discord.Embed(
             title="Ticket Criado 🎫", 
             description=f"> Seu canal de atendimento foi gerado com sucesso.\n\n"
-            f"> Por favor, clique no botão abaixo para acessar seu ticket e seguir com o processo de solicitação de funcional.", 
+                        f"> Por favor, clique no botão abaixo para acessar seu ticket e seguir com o processo de solicitação de funcional.", 
             color=discord.Color.yellow()
         )
         
-        # Criamos a View com o Botão de Redirecionamento
         view_redirect = View()
         btn_ir_para_ticket = Button(
             label="Ir para o Ticket", 
-            url=f"https://discord.com/channels/{guild.id}/{canal.id}", # Link direto para o canal
+            url=f"https://discord.com/channels/{guild.id}/{canal.id}",
             emoji="<:PC:1504874625790644385>"
         )
         view_redirect.add_item(btn_ir_para_ticket)
-
-        # Enviamos a resposta para o usuário (em ephemeral para não poluir o chat público)
         await interaction.response.send_message(embed=embed, view=view_redirect, ephemeral=True)
 
-        # Mensagem inicial dentro do canal do ticket com o menu de Cias
+        # Mensagem inicial com a view do menu de Cias ATIVADA corretamente
         view_cia = View()
         view_cia.add_item(SelectCIA(user.id))
         await canal.send(f"{user.mention}, bem-vindo! Selecione sua **Divisão de Atuação** abaixo para prosseguir:", view=view_cia)
@@ -364,15 +357,19 @@ class DadosPessoaisModal(Modal, title="Registro do Policial"):
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        solicitacoes_abertas[self.user_id].update({"patente_id": self.patente_id, "nome": self.nome.value, "passaporte": self.passaporte.value, "cia": self.cia})
+        solicitacoes_abertas[self.user_id].update({"patente_id": self.patente_id, "nome": self.nome.value, "passaporte": self.passaporte.value, "cia": self.cia, "patente_nome": self.patente_nome})
         
-        embed = Embed(title="Solicitação de Funcional", 
-        description=f"**Solicitante:** {interaction.user.mention}\n**Nome:** `{self.nome.value}`\n**Identificação:** `{self.passaporte.value}`\n**Divisão:** `{self.cia}`\n**Patente:** `{self.patente_nome}`", color=discord.Color.yellow())
-
+        embed = Embed(
+            title="Solicitação de Funcional", 
+            description=f"**Solicitante:** {interaction.user.mention}\n"
+                        f"**Nome:** `{self.nome.value}`\n"
+                        f"**Identificação:** `{self.passaporte.value}`\n"
+                        f"**Divisão:** `{self.cia}`\n"
+                        f"**Patente:** `{self.patente_nome}`", 
+            color=discord.Color.yellow()
+        )
         embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1444735189765849320/1504862661383553024/PC.png")
-
-        embed.set_image(url="https://cdn.discordapp.com/attachments/1444735189765849320/1504901482137260193/FAIXA_PC_2.png?ex=6a08ac39&is=6a075ab9&hm=01c672c3a89f1e6e781db301a6998e0b4ebd690081b2e12ccca4e29bd00dc2b3&")
-
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1444735189765849320/1504901482137260193/FAIXA_PC_2.png")
         embed.set_footer(text="Delegacia de Policia Civil® - Todos direitos reservados.")
         
         canal_logs = await interaction.client.fetch_channel(CANAL_LOGS_ROTA)
@@ -380,74 +377,57 @@ class DadosPessoaisModal(Modal, title="Registro do Policial"):
         await interaction.followup.send("✅ Solicitação enviada.", ephemeral=True)
 
 class ConfirmarOuFecharView(View):
-
     def __init__(self, user_id):
-
         super().__init__(timeout=None)
-
         self.user_id = user_id
 
-
-
-    @discord.ui.button(
-
-            label="Aceitar Funcional",
-
-            style=discord.ButtonStyle.gray,
-
-            emoji="<:AMARELO:1495480160319836412> ",
-
-            custom_id="confirmar_set"
-
-            )
-
+    @discord.ui.button(label="Aceitar Funcional", style=discord.ButtonStyle.gray, emoji="<:AMARELO:1495480160319836412>", custom_id="confirmar_set")
     async def confirmar(self, interaction: discord.Interaction, button: Button):
+        # --- RESTRICÃO PARA STAFF ---
+        if not any(role.id == ADMIN_ROLE_ID for role in interaction.user.roles):
+            embed_negado = discord.Embed(title="🔒 Acesso Negado", description="Apenas membros da Staff podem aceitar essa funcional.", color=discord.Color.red())
+            return await interaction.response.send_message(embed=embed_negado, ephemeral=True)
+
         dados = solicitacoes_abertas.pop(self.user_id, None)
         if not dados:
-            await interaction.response.send_message("❌ Solicitação não encontrada.", ephemeral=True)
-            return
+            return await interaction.response.send_message("❌ Solicitação não encontrada.", ephemeral=True)
 
         membro = interaction.guild.get_member(self.user_id)
         if not membro:
             return await interaction.response.send_message("❌ Membro não encontrado no servidor.", ephemeral=True)
 
-        # --- LÓGICA DO NOME (NICKNAME) ---
-        # Pegamos o label da divisão (ex: 1° DP em vez de PC)
+        # --- LÓGICA DO NOVO NICKNAME DO PLAYER ---
         cia_key = dados.get('cia')
         label_divisao = DIVISOES_DADOS.get(cia_key, {}).get("label", cia_key)
         
-        # Se o label for muito grande (ex: "Delegacia de Policia Civil - 1° DP"), 
-        # vamos tentar extrair apenas o final ou usar uma versão curta para não estourar os 32 caracteres do Discord
-        if "1° DP" in label_divisao:
-            div_nome = "1° DP"
-        elif "GARRA" in label_divisao:
-            div_nome = "GARRA"
-        else:
-            div_nome = cia_key # Fallback para a sigla caso seja outra
+        if "1° DP" in label_divisao: div_nome = "1° DP"
+        elif "GARRA" in label_divisao: div_nome = "GARRA"
+        elif "DOPE" in label_divisao: div_nome = "DOPE"
+        elif "DECAP" in label_divisao: div_nome = "DECAP"
+        elif "DHPP" in label_divisao: div_nome = "DHPP"
+        elif "DEIC" in label_divisao: div_nome = "DEIC"
+        elif "GOE" in label_divisao: div_nome = "GOE"
+        elif "SAT" in label_divisao: div_nome = "SAT"
+        elif "GER" in label_divisao: div_nome = "GER"
+        else: div_nome = cia_key
 
         novo_apelido = f"{div_nome} | {dados['nome'].upper()} - {dados['passaporte']}"
 
         try:
-            # O Discord limita nicks a 32 caracteres. 
-            # O [:32] garante que o bot não quebre se o nome for longo.
             await membro.edit(nick=novo_apelido[:32])
         except discord.Forbidden:
-            print(f"Erro: Sem permissão para mudar o nick de {membro.name}. O cargo do bot deve estar acima do dele.")
-        except Exception as e:
-            print(f"Erro ao mudar apelido: {e}")
+            print(f"Erro: Sem permissão para mudar o nick de {membro.name}.")
 
-        # --- RESTANTE DA LOGICA DE CARGOS ---
+        # --- GESTÃO DE CARGOS ---
         novato = interaction.guild.get_role(CARGO_NOVATO_ID)
         if novato and novato in membro.roles:
             await membro.remove_roles(novato)
 
         cargos = []
-        # Cargos da Patente
         for role_id in dados['patente_id']:
             role = interaction.guild.get_role(role_id)
             if role: cargos.append(role)
 
-        # Cargo da Divisão (Role Fixa)
         if cia_key in DIVISOES_DADOS:
             id_da_divisao = DIVISOES_DADOS[cia_key].get("role_id")
             role_divisao = interaction.guild.get_role(id_da_divisao)
@@ -456,13 +436,11 @@ class ConfirmarOuFecharView(View):
         if cargos:
             await membro.add_roles(*cargos)
 
-        # --- ATUALIZAÇÃO DO EMBED ---
+        # --- ATUALIZAÇÃO DO EMBED NO CANAL ---
         agora = datetime.now().strftime("%d/%m/%Y às %H:%M")
         embed = interaction.message.embeds[0]
         embed.color = discord.Color.green()
         embed.title = "✅ SOLICITAÇÃO APROVADA"
-        
-        # Limpa fields antigos se necessário e adiciona os novos
         embed.add_field(name="Aprovado por:", value=interaction.user.mention, inline=True)
         embed.add_field(name="ID aprovador:", value=f"`{interaction.user.id}`", inline=True)
         embed.add_field(name="Data:", value=f"`{agora}`", inline=False)
@@ -470,59 +448,70 @@ class ConfirmarOuFecharView(View):
         await interaction.message.edit(embed=embed, view=None)
         await interaction.response.send_message(f"✅ Set de {membro.mention} realizado com sucesso!", ephemeral=True)
 
-        # Deletar canal do ticket
+        # --- NOTIFICAÇÃO NA DM DO PLAYER (ACEITO) ---
+        embed_dm = discord.Embed(
+            title="<:emojiJP:1505074670829961236> Atualização no seu Set de Policial!",
+            description=f"Olá {membro.mention}, sua solicitação funcional foi aprovada com sucesso!",
+            color=discord.Color.green()
+        )
+        embed_dm.add_field(name="Novo Status:", value=f"**`Aprovado`**", inline=True)
+        embed_dm.add_field(name="Patente Atribuída:", value=f"`{dados['patente_name']}`", inline=True)
+        embed_dm.set_thumbnail(url="https://cdn.discordapp.com/attachments/1444735189765849320/1503019230910746654/GIF_PERI.gif")
+        embed_dm.set_footer(text="Bom trabalho nas ruas e boa sorte no patrulhamento!", icon_url="https://cdn.discordapp.com/attachments/1444735189765849320/1505074583601025114/emoji_JP.webp")
+
+        try:
+            await membro.send(embed=embed_dm)
+        except discord.Forbidden:
+            print(f"DM fechada para {membro.name}.")
+
         canal = interaction.guild.get_channel(dados["canal_id"])
         if canal:
             await asyncio.sleep(5)
             await canal.delete()
 
-    @discord.ui.button(
-
-            label="Recusar Funcional",
-
-            style=discord.ButtonStyle.gray,
-
-            emoji="<:x1:1495508233647952062>",
-
-            custom_id="recusar_set"
-
-            )
-
+    @discord.ui.button(label="Recusar Funcional", style=discord.ButtonStyle.gray, emoji="<:x1:1495508233647952062>", custom_id="recusar_set")
     async def cancelar(self, interaction: discord.Interaction, button: Button):
-
-
+        # --- RESTRICÃO PARA STAFF ---
+        if not any(role.id == ADMIN_ROLE_ID for role in interaction.user.roles):
+            embed_negado = discord.Embed(title="🔒 Acesso Negado", description="Apenas membros da Staff podem recusar essa funcional.", color=discord.Color.red())
+            return await interaction.response.send_message(embed=embed_negado, ephemeral=True)
 
         dados = solicitacoes_abertas.pop(self.user_id, None)
 
-
-
         embed = interaction.message.embeds[0]
-
         embed.color = discord.Color.red()
-
+        embed.title = "❌ SOLICITAÇÃO RECUSADA"
         embed.description += f"\n\n❌ **Cancelado por:** {interaction.user.mention}"
-
-
 
         await interaction.message.edit(embed=embed, view=None)
 
+        embed_recusado = discord.Embed(
+            title="❌ Solicitação Recusada",
+            description="Este ticket foi fechado pela administração e o canal será deletado em **5 segundos**.",
+            color=discord.Color.orange()
+        )
+        await interaction.response.send_message(embed=embed_recusado, ephemeral=True)
 
-
-        await interaction.response.send_message("🗑️ Solicitação cancelada.", ephemeral=True)
-
-
+        # --- NOTIFICAÇÃO NA DM DO PLAYER (RECUSADO) ---
+        if self.user_id:
+            membro = interaction.guild.get_member(self.user_id)
+            if membro:
+                embed_dm_recusa = discord.Embed(
+                    title="❌ Solicitação de Funcional Recusada",
+                    description=f"Olá {membro.mention},\n\nSua solicitação funcional foi avaliada e **não foi aprovada**.",
+                    color=discord.Color.red()
+                )
+                embed_dm_recusa.add_field(name="❓ O que fazer?", value="Procure um superior hierárquico na corregedoria ou administração caso ache necessário tirar dúvidas.", inline=False)
+                try:
+                    await membro.send(embed=embed_dm_recusa)
+                except discord.Forbidden:
+                    print("Não foi possível enviar DM de recusa.")
 
         if dados:
-
             canal = interaction.guild.get_channel(dados["canal_id"])
-
             if canal:
-
                 await asyncio.sleep(5)
-
                 await canal.delete()
-
-
 
 # ================= READY =================
 
@@ -531,72 +520,45 @@ async def on_ready():
     print(f"🔥 Bot conectado como {bot.user}")
 
     bot.add_view(TicketView())
-    bot.add_view(ConfirmarOuFecharView(user_id=0))  # user_id dummy    
-
-    print("📡 Guilds que o bot está:")
-    for g in bot.guilds:
-        print(f"- {g.name} | ID: {g.id}")
+    bot.add_view(ConfirmarOuFecharView(user_id=0))
 
     guild = discord.utils.get(bot.guilds, id=GUILD_ID)
-
     if not guild:
         print(f"❌ Guild {GUILD_ID} NÃO encontrada.")
         return
 
-    print(f"✅ Guild encontrada: {guild.name}")
-
     # ================= PAINEL SET =================
-
     try:
         canal = guild.get_channel(CANALETA_SOLICITAR_SET_ID)
-
         if canal:
-            # Apaga mensagens antigas do bot
             async for msg in canal.history(limit=10):
                 if msg.author == bot.user:
                     await msg.delete()
 
-        # 1️⃣ Criar
         embed = discord.Embed(
             title="Delegacia de Policia Civil | Solicitar Funcional",
             description=(
-            "• Utilize o botão abaixo para solicitar sua funcional. Após enviar seus dados, aguarde receber a resposta em seu privado.\n\n"
-            "> É necessario ter em mãos o seu:\n\n"   
-            "> `Nome e Sobrenome:`\n"
-            "> `Identificação (ID):`\n"    
-            "> `Divisão de atuação:`\n"             
+                "• Utilize o botão abaixo para solicitar sua funcional. Após enviar seus dados, aguarde receber a resposta em seu privado.\n\n"
+                "> É necessario ter em mãos o seu:\n\n"   
+                "> `Nome e Sobrenome:`\n"
+                "> `Identificação (ID):`\n"    
+                "> `Divisão de atuação:`\n"             
             ),
             color=discord.Color.yellow()
         )
-
-        # 2️⃣ Configurar
-        embed.set_image(url="https://cdn.discordapp.com/attachments/1444735189765849320/1504900670745215086/FAIXA_PC_1.png?ex=6a08ab77&is=6a0759f7&hm=aa4cd383f5b1da8839639f3657b0966477c4cf10e4017617d2a873b216c9177a&") # IMAGEM RETANGULAR ABAIXO
-        
-
-        embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1444735189765849320/1504862661383553024/PC.png?ex=6a088811&is=6a073691&hm=ea556dd712f2a840f7dbac71ddd483e3e8f3b827a3d7962dd67e5844489fa7ab&\n") # IMAGEM QUADRADA A DIREITA
-
-
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1444735189765849320/1504900670745215086/FAIXA_PC_1.png")
+        embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1444735189765849320/1504862661383553024/PC.png")
         embed.set_footer(text="Delegacia de Policia Civil® - Todos direitos reservados.")
         
-
-        # 3️⃣ Enviar
         await canal.send(embed=embed, view=TicketView())
-
-
-
     except Exception as e:  
         print(f"Erro ao enviar painel SET: {e}")
-    
-
-    # ================= SYNC SLASH =================
 
     try:
         synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
         print(f"🔧 Slash Commands sincronizados: {[cmd.name for cmd in synced]}")
     except Exception as e:
         print(f"Erro ao sincronizar comandos: {e}")
-
-    # ================= LOG DE START =================
 
     await enviar_log(guild, "🚀 Bot iniciado", "Sistema de SET e Slash Commands ativos.")
 
